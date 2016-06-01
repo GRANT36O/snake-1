@@ -1,161 +1,163 @@
-import java.awt.Color;
-import java.awt.Graphics2D;
+i
+import java.awt.Point;
+import java.util.LinkedList;
 
-public class GameBoard
+public class Snake extends GameBoard
 {
-	/*
-	 * The number of pixels each tile is along the x and y axis.
-	 */
-	public static final int TILE_SIZE = 25;
 
 	/*
-	 * The number of tiles the map is along the x and y axis.
+	 * The GameBoard instance.
 	 */
-	public static final int MAP_SIZE = 20;
+	private GameBoard board;
 
-	public static enum TileType
+	/*
+	 * Create the list that contains the points of the snake.
+	 */
+	private LinkedList<Point> points;
+
+	/*
+	 * Creates a new Snake instance.
+	 * 
+	 * @param board The GameBoard instance.
+	 */
+	public Snake(GameBoard board)
 	{
-		/*
-		 * Snake Tiles will kill us if we run into them.
-		 */
-		SNAKE(Color.GREEN),
+		this.board = board;
+		this.points = new LinkedList<Point>();
+		resetSnake();
+	}
+
+	public static enum Direction
+	{
 
 		/*
-		 * Fruit Tiles will give us points when we run into them.
+		 * Snake is moving up.
 		 */
-		FRUIT(Color.RED),
+		UP,
 
 		/*
-		 * Empty Tiles do nothing when we run into them.
+		 * Snake is moving down.
 		 */
-		EMPTY(null);
+		DOWN,
 
 		/*
-		 * The color of the tile.
+		 * Snake is moving left.
 		 */
-		private Color tileColor;
+		LEFT,
 
 		/*
-		 * TileType constructor
+		 * Snake is moving right.
+		 */
+		RIGHT,
+
+		/*
+		 * Snake is stationary.
+		 */
+		NONE
+
+	}
+
+	/*
+	 * The current direction that the snake is moving.
+	 */
+	private Direction currentDirection;
+
+	private Direction temporaryDirection;
+
+	public void resetSnake()
+	{
+		this.currentDirection = Direction.NONE;
+		this.temporaryDirection = Direction.NONE;
+
+		Point head = new Point(GameBoard.MAP_SIZE / 2, GameBoard.MAP_SIZE / 2);
+		points.clear();
+		points.add(head);
+		board.setTile(head.x, head.y, TileType.SNAKE);
+	}
+
+	public TileType updateSnake()
+	{
+
+		/*
+		 * Polls the snake's direction from the keyboard input, explained later.
+		 */
+		this.currentDirection = temporaryDirection;
+
+		/*
+		 * Gets the location of the head of the snake.
+		 */
+		Point head = points.getFirst();
+
+		/*
+		 * Gets the current direction of the snake, and returns false if the
+		 * direction leads us into a wall. Otherwise, it pushes a new point onto
+		 * the first position of the list (the head) in the new position of the
+		 * head.
+		 */
+		switch (currentDirection)
+		{
+
+		case UP:
+			if (head.y <= 0)
+			{
+				return null;
+			}
+			points.push(new Point(head.x, head.y - 1));
+			break;
+
+		case DOWN:
+			if (head.y >= GameBoard.MAP_SIZE - 1)
+			{
+				return null;
+			}
+			points.push(new Point(head.x, head.y + 1));
+			break;
+
+		case LEFT:
+			if (head.x <= 0)
+			{
+				return null;
+			}
+			points.push(new Point(head.x - 1, head.y));
+			break;
+
+		case RIGHT:
+			if (head.x >= GameBoard.MAP_SIZE - 1)
+			{
+				return null;
+			}
+			points.push(new Point(head.x + 1, head.y));
+			break;
+
+		case NONE:
+			return TileType.EMPTY;
+		}
+
+		/*
+		 * Updates the head variable with the position of the new head.
+		 */
+		head = points.getFirst();
+
+		/*
+		 * Gets the type of tile that was at the head location before we
+		 * updated. If the tile type was not a fruit, we remove the last point
+		 * from the snake and update the board to reflect this.
+		 */
+		TileType oldType = board.getTile(head.x, head.y);
+		if (!oldType.equals(TileType.FRUIT))
+		{
+			Point last = (Point) points.removeLast();
+			board.setTile(last.x, last.y, TileType.EMPTY);
+			oldType = board.getTile(head.x, head.y);
+		}
+
+		/*
+		 * Set the tile at the head location to a snake tile. /
+		 * board.setTile(head.x, head.y, TileType.SNAKE);
 		 * 
-		 * @param color The color of this tile.
+		 * /* Return the tile type.
 		 */
-		private TileType(Color color)
-		{
-			this.tileColor = color;
-		}
-
-		/*
-		 * @return The color of this tile.
-		 */
-		public Color getColor()
-		{
-			return tileColor;
-		}
+		return oldType;
 	}
 
-	/**
-	 * Stores an array that tracks the type of tile.
-	 */
-	private TileType[] tiles;
-
-	/**
-	 * Creates a new instance of the GameBoard class, and initialises all of the
-	 * tiles to EMPTY.
-	 */
-	public GameBoard()
-	{
-		tiles = new TileType[MAP_SIZE * MAP_SIZE];
-		resetBoard();
-	}
-
-	/**
-	 * Reset all of the tiles to EMPTY.
-	 */
-	public void resetBoard()
-	{
-		for (int i = 0; i < tiles.length; i++)
-		{
-			tiles[i] = TileType.EMPTY;
-		}
-	}
-
-	/**
-	 * Sets the tile at the given coordinates.
-	 * 
-	 * @param x
-	 *            The x coordinate of the tile.
-	 * @param y
-	 *            The y coordinate of the tile.
-	 * @param type
-	 *            The type of tile.
-	 */
-	public void setTile(int x, int y, TileType type)
-	{
-		tiles[y * MAP_SIZE + x] = type;
-	}
-
-	/**
-	 * Gets the tile at the given coordinates.
-	 * 
-	 * @param x
-	 *            The x coordinate of the tile.
-	 * @param y
-	 *            The y coordinate of the tile.
-	 * @return The type of tile.
-	 */
-	public TileType getTile(int x, int y)
-	{
-		return tiles[y * MAP_SIZE + x];
-	}
-
-	/**
-	 * Draws the game board.
-	 * 
-	 * @param g
-	 *            The graphics object to draw to.
-	 */
-	public void draw(Graphics2D g)
-	{
-
-		/*
-		 * Set the color of the tile to the snake color.
-		 */
-		g.setColor(TileType.SNAKE.getColor());
-
-		/*
-		 * Loop through all of the tiles.
-		 */
-		for (int i = 0; i < MAP_SIZE * MAP_SIZE; i++)
-		{
-
-			/*
-			 * Calculate the x and y coordinates of the tile.
-			 */
-			int x = i % MAP_SIZE;
-			int y = i / MAP_SIZE;
-
-			/*
-			 * If the tile is empty, so there is no need to render it.
-			 */
-			if (tiles[i].equals(TileType.EMPTY))
-			{
-				continue;
-			}
-
-			/*
-			 * If the tile is fruit, we set the color to red before rendering
-			 * it.
-			 */
-			if (tiles[i].equals(TileType.FRUIT))
-			{
-				g.setColor(TileType.FRUIT.getColor());
-				g.fillOval(x * TILE_SIZE + 4, y * TILE_SIZE + 4, TILE_SIZE - 8, TILE_SIZE - 8);
-				g.setColor(TileType.SNAKE.getColor());
-			} else
-			{
-				g.fillRect(x * TILE_SIZE + 1, y * TILE_SIZE + 1, TILE_SIZE - 2, TILE_SIZE - 2);
-			}
-		}
-	}
 }
