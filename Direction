@@ -1,0 +1,16 @@
+public enum Direction
+{
+
+	// moving up
+	North,
+
+	// moving right
+	East,
+
+	// moving down
+	South,
+
+	// moving left
+	West
+
+}
