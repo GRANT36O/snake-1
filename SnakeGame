@@ -1,0 +1,376 @@
+
+import java.awt.BorderLayout;
+import java.awt.Point;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.util.LinkedList;
+import java.util.Random;
+import javax.swing.JFrame;
+
+/*
+ * quickstart guide
+ * press enter to run and restart game
+ * use either W A S D or arrow keys to move snake in corresponding direction
+ * do not run into snake or borders
+ * collect fruit to make the snake grow
+ * grow the snake as large as you can
+ * restart
+ */
+public class SnakeGame extends JFrame
+{
+
+	// The number of milliseconds that should pass between each frame.
+	private static final long FRAME_TIME = 1000L / 50L;
+
+	// min length of snake
+	private static final int MIN_SNAKE_LENGTH = 5;
+
+	// max number of directions available at one time
+	private static final int MAX_DIRECTIONS = 3;
+
+	// boardpanel instance
+	private BoardPanel board;
+
+	// rng
+	private Random random;
+
+	// clock instance
+	private Clock logicTimer;
+
+	// new game
+	private boolean isNewGame;
+
+	// Whether or not the game is over.
+	private boolean isGameOver;
+
+	// Whether or not the game is paused.
+	private boolean isPaused;
+
+	// The list that contains the points for the snake.
+	private LinkedList<Point> snake;
+	
+	// The list that contains the queued directions.
+	private LinkedList<Direction> directions;
+
+	// The number of fruits that we've eaten.
+	private int fruitsEaten;
+	
+	private static final long serialVersionUID = 1L;
+	// creates snake game instance and sets up keyboard input
+	private SnakeGame()
+	{
+		super("Snake");
+		setLayout(new BorderLayout());
+		setDefaultCloseOperation(EXIT_ON_CLOSE);
+		setResizable(false);
+
+		// adds board to window
+		this.board = new BoardPanel(this);
+
+		add(board, BorderLayout.CENTER);
+
+		// adds new key listener to frame
+		addKeyListener(new KeyAdapter()
+		{
+
+			@Override
+			public void keyPressed(KeyEvent e)
+			{
+				switch (e.getKeyCode())
+				{
+
+				case KeyEvent.VK_W:
+				case KeyEvent.VK_UP:
+					if (!isPaused && !isGameOver)
+					{
+						if (directions.size() < MAX_DIRECTIONS)
+						{
+							Direction last = directions.peekLast();
+							if (last != Direction.South && last != Direction.North)
+							{
+								directions.addLast(Direction.North);
+							}
+						}
+					}
+					break;
+
+				case KeyEvent.VK_S:
+				case KeyEvent.VK_DOWN:
+					if (!isPaused && !isGameOver)
+					{
+						if (directions.size() < MAX_DIRECTIONS)
+						{
+							Direction last = directions.peekLast();
+							if (last != Direction.North && last != Direction.South)
+							{
+								directions.addLast(Direction.South);
+							}
+						}
+					}
+					break;
+
+				case KeyEvent.VK_A:
+				case KeyEvent.VK_LEFT:
+					if (!isPaused && !isGameOver)
+					{
+						if (directions.size() < MAX_DIRECTIONS)
+						{
+							Direction last = directions.peekLast();
+							if (last != Direction.East && last != Direction.West)
+							{
+								directions.addLast(Direction.West);
+							}
+						}
+					}
+					break;
+
+				case KeyEvent.VK_D:
+				case KeyEvent.VK_RIGHT:
+					if (!isPaused && !isGameOver)
+					{
+						if (directions.size() < MAX_DIRECTIONS)
+						{
+							Direction last = directions.peekLast();
+							if (last != Direction.West && last != Direction.East)
+							{
+								directions.addLast(Direction.East);
+							}
+						}
+					}
+					break;
+
+				case KeyEvent.VK_P:
+					if (!isGameOver)
+					{
+						isPaused = !isPaused;
+						logicTimer.setPaused(isPaused);
+					}
+					break;
+
+				// restarts game if currently not started
+				case KeyEvent.VK_ENTER:
+					if (isNewGame || isGameOver)
+					{
+						resetGame();
+					}
+					break;
+				}
+			}
+
+		});
+
+		// displays window
+		pack();
+		setLocationRelativeTo(null);
+		setVisible(true);
+	}
+
+	// starts game
+	private void startGame()
+	{
+
+		// Initialize all variables for game
+
+		this.random = new Random();
+		this.snake = new LinkedList<>();
+		this.directions = new LinkedList<>();
+		this.logicTimer = new Clock(9.0f);
+		this.isNewGame = true;
+
+		// Set the timer to paused initially.
+		logicTimer.setPaused(true);
+
+		// game loop will run until window is closed
+		while (true)
+		{
+			// Get the current frame's start time.
+			long start = System.nanoTime();
+
+			// Update the logic timer.
+			logicTimer.update();
+
+			// If a cycle has elapsed on the logic timer, then update the game.
+
+			if (logicTimer.hasElapsedCycle())
+			{
+				updateGame();
+			}
+
+			// Repaint the board
+			board.repaint();
+
+			long delta = (System.nanoTime() - start) / 1000000L;
+			if (delta < FRAME_TIME)
+			{
+				try
+				{
+					Thread.sleep(FRAME_TIME - delta);
+				} catch (Exception e)
+				{
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	// Updates the game's logic.
+
+	private void updateGame()
+	{
+		// gets type of tile snake head will collide with
+		TileType collision = updateSnake();
+
+		// handles different possible collisons
+
+		if (collision == TileType.Fruit)
+		{
+			fruitsEaten++;
+			spawnFruit();
+		} else if (collision == TileType.SnakeBody)
+		{
+			isGameOver = true;
+			logicTimer.setPaused(true);
+		}
+	}
+
+	// method for updating snake
+	private TileType updateSnake()
+	{
+
+		Direction direction = directions.peekFirst();
+
+		// calculates new head location
+		Point head = new Point(snake.peekFirst());
+		switch (direction)
+		{
+		case North:
+			head.y--;
+			break;
+
+		case South:
+			head.y++;
+			break;
+
+		case West:
+			head.x--;
+			break;
+
+		case East:
+			head.x++;
+			break;
+		}
+
+		// snake collison
+		if (head.x < 0 || head.x >= BoardPanel.COL_COUNT || head.y < 0 || head.y >= BoardPanel.ROW_COUNT)
+		{
+			return TileType.SnakeBody;
+		}
+
+		// takes care of movement for snake by tail and adding head
+		TileType old = board.getTile(head.x, head.y);
+		if (old != TileType.Fruit && snake.size() > MIN_SNAKE_LENGTH)
+		{
+			Point tail = snake.removeLast();
+			board.setTile(tail, null);
+			old = board.getTile(head.x, head.y);
+		}
+
+		// updates snake position
+		if (old != TileType.SnakeBody)
+		{
+			board.setTile(snake.peekFirst(), TileType.SnakeBody);
+			snake.push(head);
+			board.setTile(head, TileType.SnakeHead);
+			if (directions.size() > 1)
+			{
+				directions.poll();
+			}
+		}
+
+		return old;
+	}
+
+	// resets all variables
+	private void resetGame()
+	{
+
+		this.isNewGame = false;
+		this.isGameOver = false;
+
+		// sets starting point to be board center
+		Point head = new Point(BoardPanel.COL_COUNT / 2, BoardPanel.ROW_COUNT / 2);
+
+		// adds snake head to list
+		snake.clear();
+		snake.add(head);
+
+		// adds snake head to board
+		board.clearBoard();
+		board.setTile(head, TileType.SnakeHead);
+
+		// sets north as default direction
+		directions.clear();
+		directions.add(Direction.North);
+
+		logicTimer.reset();
+
+		spawnFruit();
+	}
+
+	public boolean isNewGame()
+	{
+		return isNewGame;
+	}
+
+	// returns game over
+	public boolean isGameOver()
+	{
+		return isGameOver;
+	}
+
+	// Spawns a new fruit onto the board.
+
+	private void spawnFruit()
+	{
+
+		// gets random board index
+		int index = random.nextInt(BoardPanel.COL_COUNT * BoardPanel.ROW_COUNT - snake.size());
+
+		// finds free space for fruit to spawn
+		int freeFound = -1;
+		for (int x = 0; x < BoardPanel.COL_COUNT; x++)
+		{
+			for (int y = 0; y < BoardPanel.ROW_COUNT; y++)
+			{
+				TileType type = board.getTile(x, y);
+				if (type == null || type == TileType.Fruit)
+				{
+					if (++freeFound == index)
+					{
+						board.setTile(x, y, TileType.Fruit);
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	public int getFruitsEaten()
+	{
+		return fruitsEaten;
+	}
+
+	// Gets the current direction of the snake.
+
+	public Direction getDirection()
+	{
+		return directions.peek();
+	}
+
+	public static void main(String[] args)
+	{
+		SnakeGame snake = new SnakeGame();
+		snake.startGame();
+	}
+
+}
