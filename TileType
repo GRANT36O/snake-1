@@ -1,0 +1,13 @@
+public enum TileType
+{
+	//fuit tile type
+	
+	Fruit,
+	
+	//snake head tile type
+	
+	SnakeHead,
+	//snake body tile type
+	
+	SnakeBody
+}
